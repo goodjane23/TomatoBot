@@ -9,7 +9,8 @@ public class GigaChatService
 {
     private readonly string key = "";
     private readonly KeysOptions options;
-    private const string STARTMESSAGE = "Придумай веселое предсказание для гуся";
+    private const string FUNNYPREDICTIONPROMPT = "Придумай веселое предсказание для гуся";
+    private const string TOXICPREDICTIONPROMPT = "Придумай токсичное саркастичное предсказание для гуся";
     private string response;
 
     private Authorization auth;
@@ -33,8 +34,11 @@ public class GigaChatService
             Completion completion = new(); //Обновление токена, если он просрочился
             await auth.UpdateToken();
 
+            var r = new Random().Next(0, 2);
+
+            string prompt = r == 0 ? FUNNYPREDICTIONPROMPT : TOXICPREDICTIONPROMPT;
             //отправка промпта
-            var result = await completion.SendRequest(auth.LastResponse.GigaChatAuthorizationResponse?.AccessToken, STARTMESSAGE);
+            var result = await completion.SendRequest(auth.LastResponse.GigaChatAuthorizationResponse?.AccessToken, prompt);
             if (result.RequestSuccessed)
             {
                 response = result.GigaChatCompletionResponse.Choices.LastOrDefault().Message.Content;
