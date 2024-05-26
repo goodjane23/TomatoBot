@@ -11,14 +11,17 @@ namespace TomatoBot.Services;
 public class CoreService : IHostedService
 {
     private readonly ITelegramBotClient client;
+    private readonly GigaChatService gigaService;
     private Message message;
     private Chat chat;
 
-    public CoreService(ITelegramBotClient client)
+    public CoreService(ITelegramBotClient client, GigaChatService gigaService)
     {
         Debug.WriteLine($"Мы в конструторе ядра");
         this.client = client;
+        this.gigaService = gigaService;
     }
+
     public Task StartAsync(CancellationToken cancellationToken)
     {
         try
@@ -34,35 +37,39 @@ public class CoreService : IHostedService
         }
         return Task.CompletedTask;
     }
-
-    private string GetString()
-    {
-        var procent = TomatoService.GetProcent();
-
-        if (procent == 100)
-            return $"{Resources.Strings.Starting} {procent}%. {Resources.Strings.Win}";
-
-        if (procent == 50)
-            return $"{Resources.Strings.Starting} {procent}%. {Resources.Strings.Half}";
-
-        if (procent > 50) 
-            return $"{Resources.Strings.Starting} {procent}%. {Resources.Strings.MoreThen50}";
-
-        return $"{Resources.Strings.Starting} {procent}%. {Resources.Strings.LessThen50}";
-    }
-
+    
     private async Task UpdateHandler(ITelegramBotClient client, Update update, CancellationToken token)
     {       
         try
         {
+            if (update.Message is null) return;
+
             message = update.Message;
             chat = message.Chat;
 
             if (update.Type is UpdateType.Message)
             {
-                if (message.Text.Equals("/томат"))
+                if (message.Text is null) return;
+                
+                if (message.Text.Contains("/tomat"))
                 {
-                    var res = $"{message.From.Username} {GetString()}";
+                    if (update.Message.From.FirstName.Equals("WithoutAim"))
+                    {
+                        var res = "Ну ты точно томат! Стопроцентный";
+                        await client.SendTextMessageAsync
+                       (chat, res);
+                    }
+                    else
+                    {
+                        var res = $"@{message.From.Username} {GetString()}";
+                        await client.SendTextMessageAsync
+                       (chat, res);
+                    }                   
+                   
+                }
+                if (message.Text.Contains("/oracle"))
+                {
+                    var res = $"@{message.From.Username} {gigaService.SendMessageToAi().Result}";
                     await client.SendTextMessageAsync
                         (chat, res);
                 }
@@ -76,8 +83,26 @@ public class CoreService : IHostedService
         }
         catch (Exception ex)
         {
+            Console.WriteLine($"{ex.Message}");
         }
     }
+
+    private string GetString()
+    {
+        var procent = TomatoService.GetPercent();
+
+        if (procent == 100)
+            return $"{Resources.Strings.Starting} {procent}%. {Resources.Strings.Win}";
+
+        if (procent == 50)
+            return $"{Resources.Strings.Starting} {procent}%. {Resources.Strings.Half}";
+
+        if (procent > 50)
+            return $"{Resources.Strings.Starting} {procent}%. {Resources.Strings.MoreThen50}";
+
+        return $"{Resources.Strings.Starting} {procent}%. {Resources.Strings.LessThen50}";
+    }
+
     private async Task ErrorHandler(ITelegramBotClient client, Exception exception, CancellationToken token)
     {
         throw new NotImplementedException();
