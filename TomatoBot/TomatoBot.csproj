@@ -8,9 +8,19 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <None Remove="Resources\Images\photo_2024-12-26_22-43-56.jpg" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="GigaChatAdapter" Version="1.0.7" />
-    <PackageReference Include="Microsoft.Extensions.Configuration.UserSecrets" Version="8.0.0" />
-    <PackageReference Include="Telegram.Bot" Version="19.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.UserSecrets" Version="9.0.0" />
+    <PackageReference Include="Telegram.Bot" Version="22.2.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Resource Include="Resources\Images\photo_2024-12-26_22-43-56.jpg">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Resource>
   </ItemGroup>
 
 </Project>

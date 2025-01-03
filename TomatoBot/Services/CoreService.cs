@@ -5,6 +5,7 @@ using Telegram.Bot;
 using Telegram.Bot.Polling;
 using Telegram.Bot.Types;
 using Telegram.Bot.Types.Enums;
+using TomatoBot.Resources;
 
 namespace TomatoBot.Services;
 
@@ -14,6 +15,7 @@ public class CoreService : IHostedService
     private readonly GigaChatService gigaService;
     private Message message;
     private Chat chat;
+    private string userName;
 
     public CoreService(ITelegramBotClient client, GigaChatService gigaService)
     {
@@ -39,13 +41,15 @@ public class CoreService : IHostedService
     }
     
     private async Task UpdateHandler(ITelegramBotClient client, Update update, CancellationToken token)
-    {       
+    {
+        string res = "Каво? Что?";
         try
         {
             if (update.Message is null) return;
 
             message = update.Message;
             chat = message.Chat;
+            userName = message.From.Username == null ? message.From.FirstName : message.From.Username;
 
             if (update.Type is UpdateType.Message)
             {
@@ -55,24 +59,34 @@ public class CoreService : IHostedService
                 {
                     if (update.Message.From.FirstName.Equals("WithoutAim"))
                     {
-                        var res = "Ну ты точно томат! Стопроцентный";
-                        await client.SendTextMessageAsync
-                       (chat, res);
+                        res = "Ну ты точно томат! Стопроцентный";
                     }
                     else
                     {
-                        var res = $"@{message.From.Username} {GetString()}";
-                        await client.SendTextMessageAsync
-                       (chat, res);
-                    }                   
-                   
-                }
+                        res = $"@{userName} {GetString()}";                      
+                    }
+                };
+
                 if (message.Text.Contains("/oracle"))
                 {
-                    var res = $"@{message.From.Username} {gigaService.SendMessageToAi().Result}";
-                    await client.SendTextMessageAsync
-                        (chat, res);
-                }
+                    res = $"@{userName} {gigaService.SendMessageToAi().Result}";
+                };
+
+                if (message.Text.Contains("/bread"))
+                {
+                    Random random = new();
+                    BreadDictionary.Bread.TryGetValue(random.Next(0,16), out string val);
+                   
+                    if (message.From.Id == 289798522)
+                    {
+                        val = "Эчпочмак горячий с чаем тоже горячим, пиздец вкусно всю жизнь бы ел, брат. Вай мама";
+                    }
+
+                    res = $"@{userName} cегодня ты {val}";
+                };
+
+                await client.SendTextMessageAsync
+                       (chat, res);
             }
         }
         catch (ArgumentException ex)

@@ -10,7 +10,6 @@ public class GigaChatService
     private readonly string key = "";
     private readonly KeysOptions options;
     private const string FUNNYPREDICTIONPROMPT = "Придумай веселое предсказание для гуся";
-    private const string TOXICPREDICTIONPROMPT = "Придумай токсичное саркастичное предсказание для гуся";
     private string response;
 
     private Authorization auth;
@@ -36,7 +35,7 @@ public class GigaChatService
 
             var r = new Random().Next(0, 2);
 
-            string prompt = r == 0 ? FUNNYPREDICTIONPROMPT : TOXICPREDICTIONPROMPT;
+            string prompt = FUNNYPREDICTIONPROMPT;
             //отправка промпта
             var result = await completion.SendRequest(auth.LastResponse.GigaChatAuthorizationResponse?.AccessToken, prompt);
             if (result.RequestSuccessed)
