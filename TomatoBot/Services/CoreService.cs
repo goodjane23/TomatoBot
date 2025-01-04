@@ -42,14 +42,14 @@ public class CoreService : IHostedService
     
     private async Task UpdateHandler(ITelegramBotClient client, Update update, CancellationToken token)
     {
+        if (update.Message is null) return;
+        if (update.Message.From is null) return;
         string res = "Каво? Что?";
         try
         {
-            if (update.Message is null) return;
-
             message = update.Message;
             chat = message.Chat;
-            userName = message.From.Username == null ? message.From.FirstName : message.From.Username;
+            userName = message.From.Username ?? message.From.FirstName;
 
             if (update.Type is UpdateType.Message)
             {
@@ -63,36 +63,59 @@ public class CoreService : IHostedService
                     }
                     else
                     {
-                        res = $"@{userName} {GetString()}";                      
+                        res = $"@{userName} {GetString()}";
                     }
                 };
 
-                if (message.Text.Contains("/oracle"))
+                if (message.Text.Contains("/dice"))
                 {
-                    res = $"@{userName} {gigaService.SendMessageToAi().Result}";
-                };
+                    await client.SendDice(chat);
+                    return;
+                }
 
                 if (message.Text.Contains("/bread"))
                 {
                     Random random = new();
-                    BreadDictionary.Bread.TryGetValue(random.Next(0,16), out string val);
-                   
+                    BreadDictionary.Bread.TryGetValue(random.Next(0,16), out var val);
+
                     if (message.From.Id == 289798522)
                     {
-                        val = "Эчпочмак горячий с чаем тоже горячим, пиздец вкусно всю жизнь бы ел, брат. Вай мама";
+                        await client.SendPhoto(
+                            chat,
+                            InputFile.FromUri(
+                                new Uri("https://static.1000.menu/res/640/img/content-v2/a6/37/88873/echpochmak-treugolniki-s-kuricei-i-kartoshkoi-tatarskii_1723464678_0_7pg57nw_max.jpg")),
+                            "Эчпочмак горячий с чаем тоже горячим, пиздец вкусно всю жизнь бы ел, брат. Вай мама");
+                        return;
+
                     }
 
                     res = $"@{userName} cегодня ты {val}";
                 };
 
-                await client.SendTextMessageAsync
-                       (chat, res);
+                if (message.Text.Contains("/askai"))
+                {
+                    var indexFirstSpace = message.Text.IndexOf(' ');
+                    if (indexFirstSpace == -1) res = "Ну напиши че нить";
+                    else
+                    {
+                        var prompt = message.Text.Substring(indexFirstSpace);
+                        if (prompt.Length > 0)
+                        {
+                            res = await gigaService.AskAi(prompt);
+                        }
+                        else
+                        {
+                            res = "Ну напиши че нить";
+                        }
+                    }
+                }
+                
+                _ = await client.SendMessage(chat, res);
             }
         }
         catch (ArgumentException ex)
         {
-            await client.SendTextMessageAsync(
-                        chat.Id, ex.Message);
+            _ = await client.SendMessage(chat, ex.Message);          
             Console.WriteLine($"{message} was input");
         }
         catch (Exception ex)
@@ -101,7 +124,7 @@ public class CoreService : IHostedService
         }
     }
 
-    private string GetString()
+    private static string GetString()
     {
         var procent = TomatoService.GetPercent();
 

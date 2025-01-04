@@ -7,7 +7,6 @@ namespace TomatoBot.Services;
 
 public class GigaChatService
 {
-    private readonly string key = "";
     private readonly KeysOptions options;
     private const string FUNNYPREDICTIONPROMPT = "Придумай веселое предсказание для гуся";
     private string response;
@@ -17,13 +16,25 @@ public class GigaChatService
 
     public GigaChatService(IOptions<KeysOptions> options)
     {
-        this.options = options.Value;
-        Auth();
+        auth = new Authorization(options.Value.GigaChatKey, RateScope.GIGACHAT_API_PERS);
     }
-    private async Task Auth()
+
+    public async Task<string> AskAi(string prompt)
     {
-        auth = new Authorization(options.GigaChatKey, RateScope.GIGACHAT_API_PERS);
         authResult = await auth.SendRequest();
+        if (authResult.AuthorizationSuccess)
+        {
+            Completion completion = new(); //Обновление токена, если он просрочился
+            await auth.UpdateToken();
+            
+            var result = await completion.SendRequest(auth.LastResponse.GigaChatAuthorizationResponse?.AccessToken, prompt);
+            
+            if (result.RequestSuccessed)
+            {
+                response = result.GigaChatCompletionResponse.Choices.LastOrDefault().Message.Content;
+            }
+        }
+        return response;
     }
 
     public async Task<string> SendMessageToAi()

@@ -4,8 +4,8 @@ namespace TomatoBot.Extentions;
 
 public class TelegramBotOptions()
 {
-    public string Key { get; set; }
-    public string Url { get; set; }
+    public string Key { get; set; } = "";
+    public string Url { get; set; } = "";
 }
 
 public static class TelegramConfiguration
