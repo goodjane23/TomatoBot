@@ -1,17 +1,15 @@
 ﻿using GigaChatAdapter;
+using TomatoBot.Options;
 using GigaChatAdapter.Auth;
 using Microsoft.Extensions.Options;
-using TomatoBot.Options;
+using System.Diagnostics;
 
 namespace TomatoBot.Services;
 
 public class GigaChatService
 {
-    private readonly KeysOptions options;
-    private const string FUNNYPREDICTIONPROMPT = "Придумай веселое предсказание для гуся";
-    private string response;
-
-    private Authorization auth;
+    private readonly string response;
+    private readonly Authorization auth;
     private AuthorizationResponse authResult;
 
     public GigaChatService(IOptions<KeysOptions> options)
@@ -19,42 +17,25 @@ public class GigaChatService
         auth = new Authorization(options.Value.GigaChatKey, RateScope.GIGACHAT_API_PERS);
     }
 
-    public async Task<string> AskAi(string prompt)
+    public async Task<string?> AskAi(string prompt)
     {
         authResult = await auth.SendRequest();
         if (authResult.AuthorizationSuccess)
         {
-            Completion completion = new(); //Обновление токена, если он просрочился
-            await auth.UpdateToken();
-            
+            Completion completion = new(); 
+            await auth.UpdateToken(reserveTime: new TimeSpan(0, 1, 0));
+
             var result = await completion.SendRequest(auth.LastResponse.GigaChatAuthorizationResponse?.AccessToken, prompt);
             
             if (result.RequestSuccessed)
             {
-                response = result.GigaChatCompletionResponse.Choices.LastOrDefault().Message.Content;
+                return result.GigaChatCompletionResponse.Choices.LastOrDefault().Message.Content;
             }
         }
-        return response;
-    }
-
-    public async Task<string> SendMessageToAi()
-    {
-        if (authResult.AuthorizationSuccess)
+        else
         {
-            Completion completion = new(); //Обновление токена, если он просрочился
-            await auth.UpdateToken();
-
-            var r = new Random().Next(0, 2);
-
-            string prompt = FUNNYPREDICTIONPROMPT;
-            //отправка промпта
-            var result = await completion.SendRequest(auth.LastResponse.GigaChatAuthorizationResponse?.AccessToken, prompt);
-            if (result.RequestSuccessed)
-            {
-                response = result.GigaChatCompletionResponse.Choices.LastOrDefault().Message.Content;
-            }
+            Debug.WriteLine($"Authorization has fallen: {authResult.ErrorTextIfFailed}");            
         }
-        return response;
+        return null;
     }
-
 }

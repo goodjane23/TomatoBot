@@ -1,6 +1,7 @@
 ﻿
 using Microsoft.VisualBasic;
 using System.Diagnostics;
+using System.Runtime.CompilerServices;
 using Telegram.Bot;
 using Telegram.Bot.Polling;
 using Telegram.Bot.Types;
@@ -142,11 +143,12 @@ public class CoreService : IHostedService
 
     private async Task ErrorHandler(ITelegramBotClient client, Exception exception, CancellationToken token)
     {
-        throw new NotImplementedException();
+        Debug.WriteLine(exception.Message);        
     }
 
     public Task StopAsync(CancellationToken cancellationToken)
     {
-        throw new NotImplementedException();
+        Debug.WriteLine("Bot is stop");
+        return Task.CompletedTask;
     }
 }
