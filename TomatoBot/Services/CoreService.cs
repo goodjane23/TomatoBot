@@ -66,7 +66,7 @@ public class CoreService : IHostedService
                     }
                     else
                     {
-                        var procent = GetProcent();
+                        var procent = TomatoService.GetPercent();
                         res = procent switch
                         {
                             100 => Resources.Strings.Win,
