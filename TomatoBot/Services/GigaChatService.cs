@@ -8,13 +8,14 @@ namespace TomatoBot.Services;
 
 public class GigaChatService
 {
-    private readonly string response;
     private readonly Authorization auth;
+    private readonly ILogger<GigaChatService> logger;
     private AuthorizationResponse authResult;
 
-    public GigaChatService(IOptions<KeysOptions> options)
+    public GigaChatService(IOptions<KeysOptions> options, ILogger<GigaChatService> logger)
     {
         auth = new Authorization(options.Value.GigaChatKey, RateScope.GIGACHAT_API_PERS);
+        this.logger = logger;
     }
 
     public async Task<string?> AskAi(string prompt)
@@ -23,7 +24,7 @@ public class GigaChatService
         if (authResult.AuthorizationSuccess)
         {
             Completion completion = new(); 
-            await auth.UpdateToken(reserveTime: new TimeSpan(0, 1, 0));
+            var resultUpdateToken =  await auth.UpdateToken(reserveTime: new TimeSpan(0, 1, 0));
 
             var result = await completion.SendRequest(auth.LastResponse.GigaChatAuthorizationResponse?.AccessToken, prompt);
             
@@ -34,7 +35,7 @@ public class GigaChatService
         }
         else
         {
-            Debug.WriteLine($"Authorization has fallen: {authResult.ErrorTextIfFailed}");            
+            logger.LogWarning($"Authorization has fallen: {authResult.ErrorTextIfFailed}");            
         }
         return null;
     }

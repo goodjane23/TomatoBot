@@ -1,4 +1,5 @@
 ﻿
+using Microsoft.Extensions.Logging;
 using Microsoft.VisualBasic;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
@@ -14,15 +15,16 @@ public class CoreService : IHostedService
 {
     private readonly ITelegramBotClient client;
     private readonly GigaChatService gigaService;
+    private readonly ILogger<CoreService> logger;
     private Message message;
     private Chat chat;
     private string userName;
 
-    public CoreService(ITelegramBotClient client, GigaChatService gigaService)
+    public CoreService(ITelegramBotClient client, GigaChatService gigaService, ILogger<CoreService> logger)
     {
-        Debug.WriteLine($"Мы в конструторе ядра");
         this.client = client;
         this.gigaService = gigaService;
+        this.logger = logger;
     }
 
     public Task StartAsync(CancellationToken cancellationToken)
@@ -32,11 +34,11 @@ public class CoreService : IHostedService
             client.StartReceiving(UpdateHandler, 
                 ErrorHandler,
                 cancellationToken:cancellationToken);
-            Console.WriteLine($"Bot is starting");
+            logger.LogInformation("Bot is starting");
         }
-        catch (Exception)
+        catch (Exception ex)
         {
-
+            logger.LogError(ex.Message);
         }
         return Task.CompletedTask;
     }
@@ -51,7 +53,7 @@ public class CoreService : IHostedService
             message = update.Message;
             chat = message.Chat;
             userName = message.From.Username ?? message.From.FirstName;
-
+            
             if (update.Type is UpdateType.Message)
             {
                 if (message.Text is null) return;
@@ -64,7 +66,23 @@ public class CoreService : IHostedService
                     }
                     else
                     {
-                        res = $"@{userName} {GetString()}";
+                        var procent = GetProcent();
+                        res = procent switch
+                        {
+                            100 => Resources.Strings.Win,
+                            50 => Resources.Strings.Half,
+                            69 => Resources.Strings.SixtyNine,
+                            _ => procent > 50 ? Resources.Strings.MoreThen50 : Resources.Strings.LessThen50,
+                        };
+                        var resultMessage = $"@{userName} {Resources.Strings.Starting} {procent}%. {res}";
+
+                        if (true)
+                        {
+                            await using var stream = System.IO.File.OpenRead("Resources/Images/ohmy.gif");
+                            await client.SendDocument(chat, stream, resultMessage);
+                            return;
+                        }
+                        
                     }
                 };
 
@@ -95,6 +113,7 @@ public class CoreService : IHostedService
 
                 if (message.Text.Contains("/askai"))
                 {
+                    
                     var indexFirstSpace = message.Text.IndexOf(' ');
                     if (indexFirstSpace == -1) res = "Ну напиши че нить";
                     else
@@ -102,7 +121,20 @@ public class CoreService : IHostedService
                         var prompt = message.Text.Substring(indexFirstSpace);
                         if (prompt.Length > 0)
                         {
-                            res = await gigaService.AskAi(prompt);
+                            try
+                            {
+                                res = await gigaService.AskAi(prompt);
+                                if (string.IsNullOrEmpty(res))
+                                {
+                                    res = "Зайдите попозже";
+                                }
+                                
+                            }
+                            catch (Exception ex)
+                            {
+                                logger.LogError(ex, ex.Message + Environment.NewLine + ex.InnerException?.Message);
+                            }
+                            
                         }
                         else
                         {
@@ -110,45 +142,31 @@ public class CoreService : IHostedService
                         }
                     }
                 }
-                
-                _ = await client.SendMessage(chat, res);
+                if (res is not null)
+                {
+                    _ = await client.SendMessage(chat, res);
+                }
             }
         }
         catch (ArgumentException ex)
         {
-            _ = await client.SendMessage(chat, ex.Message);          
-            Console.WriteLine($"{message} was input");
+            _ = await client.SendMessage(chat, ex.Message);
+            logger.LogError(ex.Message);
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"{ex.Message}");
+            logger.LogError(ex.Message);
         }
     }
-
-    private static string GetString()
+    private Task ErrorHandler(ITelegramBotClient client, Exception exception, CancellationToken token)
     {
-        var procent = TomatoService.GetPercent();
-
-        if (procent == 100)
-            return $"{Resources.Strings.Starting} {procent}%. {Resources.Strings.Win}";
-
-        if (procent == 50)
-            return $"{Resources.Strings.Starting} {procent}%. {Resources.Strings.Half}";
-
-        if (procent > 50)
-            return $"{Resources.Strings.Starting} {procent}%. {Resources.Strings.MoreThen50}";
-
-        return $"{Resources.Strings.Starting} {procent}%. {Resources.Strings.LessThen50}";
-    }
-
-    private async Task ErrorHandler(ITelegramBotClient client, Exception exception, CancellationToken token)
-    {
-        Debug.WriteLine(exception.Message);        
+        logger.LogError(exception.Message);
+        return Task.CompletedTask;
     }
 
     public Task StopAsync(CancellationToken cancellationToken)
     {
-        Debug.WriteLine("Bot is stop");
+        logger.LogInformation("Bot is stop");
         return Task.CompletedTask;
     }
 }

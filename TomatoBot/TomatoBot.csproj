@@ -6,6 +6,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <UserSecretsId>3853fd58-a0ea-4819-9fbb-4f8e3518d8c1</UserSecretsId>
     <DockerDefaultTargetOS>Linux</DockerDefaultTargetOS>
+    <ContainerRepository>goodgateway/tomatobot</ContainerRepository>
   </PropertyGroup>
 
   <ItemGroup>

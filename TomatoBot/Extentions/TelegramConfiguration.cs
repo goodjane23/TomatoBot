@@ -5,7 +5,6 @@ namespace TomatoBot.Extentions;
 public class TelegramBotOptions()
 {
     public string Key { get; set; } = "";
-    public string Url { get; set; } = "";
 }
 
 public static class TelegramConfiguration
@@ -15,7 +14,7 @@ public static class TelegramConfiguration
         var options = new TelegramBotOptions();
         action.Invoke(options);
 
-        var clientOptions = new TelegramBotClientOptions(options.Key, options.Url);
+        var clientOptions = new TelegramBotClientOptions(options.Key);
         var bot = new TelegramBotClient(clientOptions);
 
         services.AddSingleton<ITelegramBotClient>(bot);

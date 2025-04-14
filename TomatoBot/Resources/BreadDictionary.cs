@@ -20,7 +20,8 @@ public static class BreadDictionary
         {13,"Круассан" },        
         {14,"Лаваш" },
         {15,"Пончик" },
-        {16,"Чиабатта" }
+        {16,"Чиабатта" },
+        {17,"Цельнозерновой" }
     };
     public static Dictionary<int, string> Bread => bread;
 }
