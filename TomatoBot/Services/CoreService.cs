@@ -74,12 +74,12 @@ public class CoreService : IHostedService
                             69 => Resources.Strings.SixtyNine,
                             _ => procent > 50 ? Resources.Strings.MoreThen50 : Resources.Strings.LessThen50,
                         };
-                        var resultMessage = $"@{userName} {Resources.Strings.Starting} {procent}%. {res}";
+                        res = $"@{userName} {Resources.Strings.Starting} {procent}%. {res}";
 
-                        if (true)
+                        if (procent == 69)
                         {
                             await using var stream = System.IO.File.OpenRead("Resources/Images/ohmy.gif");
-                            await client.SendDocument(chat, stream, resultMessage);
+                            await client.SendDocument(chat, stream, res);
                             return;
                         }
                         
