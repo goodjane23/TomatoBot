@@ -1,10 +1,4 @@
-﻿
-using Microsoft.Extensions.Logging;
-using Microsoft.VisualBasic;
-using System.Diagnostics;
-using System.Runtime.CompilerServices;
-using Telegram.Bot;
-using Telegram.Bot.Polling;
+﻿using Telegram.Bot;
 using Telegram.Bot.Types;
 using Telegram.Bot.Types.Enums;
 using TomatoBot.Resources;
