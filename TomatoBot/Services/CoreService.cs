@@ -1,6 +1,10 @@
-﻿using Telegram.Bot;
+﻿using Microsoft.VisualBasic;
+using System.Collections.Concurrent;
+using System.Net.Http.Headers;
+using Telegram.Bot;
 using Telegram.Bot.Types;
 using Telegram.Bot.Types.Enums;
+using Telegram.Bot.Types.ReplyMarkups;
 using TomatoBot.Resources;
 
 namespace TomatoBot.Services;
@@ -13,7 +17,8 @@ public class CoreService : IHostedService
     private Message message;
     private Chat chat;
     private string userName;
-
+    private int randCheckNum;
+    private ConcurrentDictionary<long, int> usersButtons = new();
     public CoreService(ITelegramBotClient client, GigaChatService gigaService, ILogger<CoreService> logger)
     {
         this.client = client;
@@ -39,24 +44,56 @@ public class CoreService : IHostedService
     
     private async Task UpdateHandler(ITelegramBotClient client, Update update, CancellationToken token)
     {
-        if (update.Message is null) return;
-        if (update.Message.From is null) return;
-        string res = "Каво? Что?";
+        switch (update.Type)
+        {
+            case UpdateType.Message:
+                await MessageHandler(update);
+                break;
+            case UpdateType.CallbackQuery: 
+                CallbackQueryHandler(client, update);
+                break;
+            default:
+                break;
+        }
+    }
+
+    private void CallbackQueryHandler(ITelegramBotClient client, Update update)
+    {
+        usersButtons.TryGetValue(update.CallbackQuery.From.Id, out int data);
+        var cbd = update.CallbackQuery.Data;
+        _ = int.TryParse(cbd, out int res);
+        if (res != data)
+        {
+            client.BanChatMember(chat, update.CallbackQuery.From.Id);
+        }
+
+        //удолить сообщения
+    }
+
+    private async Task MessageHandler(Update update)
+    {
+        string res = string.Empty;
         try
         {
             message = update.Message;
             chat = message.Chat;
             userName = message.From.Username ?? message.From.FirstName;
-            
+
             if (update.Type is UpdateType.Message)
             {
+
+                if (message.Type == MessageType.NewChatMembers)
+                {
+                    CheckUser(update);
+                }
+
                 if (message.Text is null) return;
-                
+
                 if (message.Text.Contains("/tomat"))
                 {
                     if (update.Message.From.FirstName.Equals("WithoutAim"))
                     {
-                        res = "Ну ты точно томат! Стопроцентный";
+                        res = "Ты точно томат! Стопроцентный";
                     }
                     else
                     {
@@ -76,20 +113,29 @@ public class CoreService : IHostedService
                             await client.SendDocument(chat, stream, res);
                             return;
                         }
-                        
                     }
-                };
+                }               
 
                 if (message.Text.Contains("/dice"))
                 {
                     await client.SendDice(chat);
                     return;
                 }
-
+                if (message.Text.Contains("/coin"))
+                {
+                    if (Random.Shared.Next(1, 3) == 1)
+                    {
+                        await client.SendSticker(chat, InputFile.FromString("CAACAgIAAxkBAAK7ZWl5EEiVy1A-D1n__nfl-OBzzsHMAAIZbwACXxxpSl9IHKfngYQPOAQ"));
+                    }
+                    else
+                    {
+                        await client.SendSticker(chat, InputFile.FromString("CAACAgIAAxkBAAK7a2l5EFB-JYsLhRjgfd8aJtM_B06IAAJEcgACxuZxShUDbdPs6G2lOAQ"));
+                    }
+                    return;
+                }
                 if (message.Text.Contains("/bread"))
                 {
-                    Random random = new();
-                    BreadDictionary.Bread.TryGetValue(random.Next(0,16), out var val);
+                    BreadDictionary.Bread.TryGetValue(Random.Shared.Next(0, 16), out var val);
 
                     if (message.From.Id == 289798522)
                     {
@@ -101,42 +147,20 @@ public class CoreService : IHostedService
                         return;
 
                     }
-
                     res = $"@{userName} cегодня ты {val}";
                 };
 
-                if (message.Text.Contains("/askai"))
+                if (message.Text.Contains("/flex"))
                 {
-                    
-                    var indexFirstSpace = message.Text.IndexOf(' ');
-                    if (indexFirstSpace == -1) res = "Ну напиши че нить";
-                    else
-                    {
-                        var prompt = message.Text.Substring(indexFirstSpace);
-                        if (prompt.Length > 0)
-                        {
-                            try
-                            {
-                                res = await gigaService.AskAi(prompt);
-                                if (string.IsNullOrEmpty(res))
-                                {
-                                    res = "Зайдите попозже";
-                                }
-                                
-                            }
-                            catch (Exception ex)
-                            {
-                                logger.LogError(ex, ex.Message + Environment.NewLine + ex.InnerException?.Message);
-                            }
-                            
-                        }
-                        else
-                        {
-                            res = "Ну напиши че нить";
-                        }
-                    }
+                    var today = DateTime.Today;
+                    DateTime targetDate = new(2026, 11, 21);
+
+                    var difference = targetDate - today;
+                    var daysDifference = (int)difference.TotalDays;
+
+                    res = $"До флекса осталось {daysDifference} д";
                 }
-                if (res is not null)
+                if (!string.IsNullOrEmpty(res))
                 {
                     _ = await client.SendMessage(chat, res);
                 }
@@ -152,6 +176,33 @@ public class CoreService : IHostedService
             logger.LogError(ex.Message);
         }
     }
+
+    //проверить что пользователь ДОБАВИЛСЯ            +
+    //попросить написать пользователя цифру 6 буквами +
+    //сверить цифру с результатом + 
+    //если результат не тру - удалить и забанить +-
+    // удалить сообщения
+    private async Task CheckUser(Update update)
+    {
+        randCheckNum = Random.Shared.Next(10);
+        usersButtons.TryAdd(update.Message.From.Id, randCheckNum);
+        var buttons = new List<InlineKeyboardButton>();
+        for (int i = 0; i < 10; i++)
+        {
+            buttons.Add(new() { Text = $"{i}", CallbackData = $"{i}" });
+        }
+        var buttonsLine = new List<List<InlineKeyboardButton>>
+        {
+            buttons
+        };
+        var inlineKeyboardMarkup = new InlineKeyboardMarkup(buttonsLine);
+
+        await client.SendMessage(
+            chat, 
+            $"Привет, @{userName}, нажми на цифру {randCheckNum}", replyMarkup: inlineKeyboardMarkup
+            );
+    }
+    
     private Task ErrorHandler(ITelegramBotClient client, Exception exception, CancellationToken token)
     {
         logger.LogError(exception.Message);
