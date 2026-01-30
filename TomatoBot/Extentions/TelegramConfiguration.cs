@@ -14,13 +14,10 @@ public static class TelegramConfiguration
         var options = new TelegramBotOptions();
         action.Invoke(options);
 
-#if DEBUG
-        var clientOptions = "6620828511:AAHkhuFKlX7V1SaPKbOVj-PTZ9GffFyRp2U";
-#else
         var clientOptions = new TelegramBotClientOptions(options.Key);
-#endif
+
         var bot = new TelegramBotClient(clientOptions);
 
         services.AddSingleton<ITelegramBotClient>(bot);
-    }    
+    }
 }
