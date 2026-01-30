@@ -1,5 +1,6 @@
 ﻿using Microsoft.VisualBasic;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.Net.Http.Headers;
 using Telegram.Bot;
 using Telegram.Bot.Types;
@@ -19,6 +20,8 @@ public class CoreService : IHostedService
     private string userName;
     private int randCheckNum;
     private ConcurrentDictionary<long, int> usersButtons = new();
+    private Message capchaMessage;
+
     public CoreService(ITelegramBotClient client, GigaChatService gigaService, ILogger<CoreService> logger)
     {
         this.client = client;
@@ -49,25 +52,26 @@ public class CoreService : IHostedService
             case UpdateType.Message:
                 await MessageHandler(update);
                 break;
-            case UpdateType.CallbackQuery: 
-                CallbackQueryHandler(client, update);
+            case UpdateType.CallbackQuery:
+                await CallbackQueryHandler(client, update);
                 break;
             default:
                 break;
         }
     }
 
-    private void CallbackQueryHandler(ITelegramBotClient client, Update update)
+    private async Task CallbackQueryHandler(ITelegramBotClient client, Update update)
     {
         usersButtons.TryGetValue(update.CallbackQuery.From.Id, out int data);
         var cbd = update.CallbackQuery.Data;
         _ = int.TryParse(cbd, out int res);
         if (res != data)
         {
-            client.BanChatMember(chat, update.CallbackQuery.From.Id);
+            await client.BanChatMember(chat, update.CallbackQuery.From.Id);
         }
 
-        //удолить сообщения
+        await client.DeleteMessage(chat.Id, capchaMessage.Id);
+        usersButtons.Remove(update.CallbackQuery.From.Id, out int v);
     }
 
     private async Task MessageHandler(Update update)
@@ -81,7 +85,10 @@ public class CoreService : IHostedService
 
             if (update.Type is UpdateType.Message)
             {
-
+                if (usersButtons.TryGetValue(message.From.Id, out int _))
+                {
+                    client.DeleteMessage(chat.Id, message.Id);
+                }
                 if (message.Type == MessageType.NewChatMembers)
                 {
                     CheckUser(update);
@@ -197,7 +204,7 @@ public class CoreService : IHostedService
         };
         var inlineKeyboardMarkup = new InlineKeyboardMarkup(buttonsLine);
 
-        await client.SendMessage(
+        capchaMessage = await client.SendMessage(
             chat, 
             $"Привет, @{userName}, нажми на цифру {randCheckNum}", replyMarkup: inlineKeyboardMarkup
             );
