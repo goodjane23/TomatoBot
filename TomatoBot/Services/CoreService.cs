@@ -1,11 +1,9 @@
-﻿using Microsoft.VisualBasic;
-using System.Collections.Concurrent;
-using System.Collections.Generic;
-using System.Net.Http.Headers;
+﻿using System.Collections.Concurrent;
 using Telegram.Bot;
 using Telegram.Bot.Types;
 using Telegram.Bot.Types.Enums;
 using Telegram.Bot.Types.ReplyMarkups;
+using TomatoBot.Models;
 using TomatoBot.Resources;
 
 namespace TomatoBot.Services;
@@ -14,12 +12,12 @@ public class CoreService : IHostedService
 {
     private readonly ITelegramBotClient client;
     private readonly GigaChatService gigaService;
-    private readonly ILogger<CoreService> logger;
-    private Message message;
-    private Chat chat;
+    private readonly ILogger<CoreService> logger;   
+    
     private string userName;
     private int randCheckNum;
-    private ConcurrentDictionary<long, int> usersButtons = new();
+   // private ConcurrentDictionary<long, int> usersButtons = new();
+    private ConcurrentDictionary<long, CaptchaData> userCaptcha  = new();
     private Message capchaMessage;
 
     public CoreService(ITelegramBotClient client, GigaChatService gigaService, ILogger<CoreService> logger)
@@ -53,25 +51,38 @@ public class CoreService : IHostedService
                 await MessageHandler(update);
                 break;
             case UpdateType.CallbackQuery:
-                await CallbackQueryHandler(client, update);
+                await CallbackQueryHandler(update);
                 break;
             default:
                 break;
         }
     }
 
-    private async Task CallbackQueryHandler(ITelegramBotClient client, Update update)
+    private async Task CallbackQueryHandler(Update update)
     {
-        usersButtons.TryGetValue(update.CallbackQuery.From.Id, out int data);
-        var cbd = update.CallbackQuery.Data;
-        _ = int.TryParse(cbd, out int res);
-        if (res != data)
+        int res = -1;
+        try
         {
-            await client.BanChatMember(chat, update.CallbackQuery.From.Id);
-        }
+            var chat = update.CallbackQuery.Message.Chat;
+            var userId = update.CallbackQuery.From.Id;
+            var cbd = update.CallbackQuery.Data;
 
-        await client.DeleteMessage(chat.Id, capchaMessage.Id);
-        usersButtons.Remove(update.CallbackQuery.From.Id, out int v);
+            var isUserExist = userCaptcha.TryGetValue(userId, out var data);
+            if (!isUserExist) return;
+
+            _ = int.TryParse(cbd, out res);
+            if (res != data.ExpectedValue)
+            {
+                await client.BanChatMember(chat, update.CallbackQuery.From.Id);
+            }
+
+            await client.DeleteMessage(chat.Id, data.MessageId);
+            userCaptcha.TryRemove(userId, out _);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError("Ошбика в методе CallbackQueryHandler: " + ex.Message + "CallbackQuery.Data:" + res);
+        }
     }
 
     private async Task MessageHandler(Update update)
@@ -79,19 +90,19 @@ public class CoreService : IHostedService
         string res = string.Empty;
         try
         {
-            message = update.Message;
-            chat = message.Chat;
+            var message = update.Message;
+            var chat = message.Chat;
             userName = message.From.Username ?? message.From.FirstName;
 
             if (update.Type is UpdateType.Message)
             {
-                if (usersButtons.TryGetValue(message.From.Id, out int _))
+                if (userCaptcha.TryGetValue(message.From.Id, out _))
                 {
-                    client.DeleteMessage(chat.Id, message.Id);
+                    await client.DeleteMessage(chat.Id, message.Id);
                 }
                 if (message.Type == MessageType.NewChatMembers)
                 {
-                    CheckUser(update);
+                    await CheckUser(update);
                 }
 
                 if (message.Text is null) return;
@@ -175,7 +186,6 @@ public class CoreService : IHostedService
         }
         catch (ArgumentException ex)
         {
-            _ = await client.SendMessage(chat, ex.Message);
             logger.LogError(ex.Message);
         }
         catch (Exception ex)
@@ -184,17 +194,13 @@ public class CoreService : IHostedService
         }
     }
 
-    //проверить что пользователь ДОБАВИЛСЯ            +
-    //попросить написать пользователя цифру 6 буквами +
-    //сверить цифру с результатом + 
-    //если результат не тру - удалить и забанить +-
-    // удалить сообщения
     private async Task CheckUser(Update update)
     {
-        randCheckNum = Random.Shared.Next(10);
-        usersButtons.TryAdd(update.Message.From.Id, randCheckNum);
+        var chat = update.Message.Chat;
+        randCheckNum = Random.Shared.Next(0,8);
+      
         var buttons = new List<InlineKeyboardButton>();
-        for (int i = 0; i < 10; i++)
+        for (int i = 0; i <8; i++)
         {
             buttons.Add(new() { Text = $"{i}", CallbackData = $"{i}" });
         }
@@ -204,10 +210,12 @@ public class CoreService : IHostedService
         };
         var inlineKeyboardMarkup = new InlineKeyboardMarkup(buttonsLine);
 
-        capchaMessage = await client.SendMessage(
+        var messageId = await client.SendMessage(
             chat, 
             $"Привет, @{userName}, нажми на цифру {randCheckNum}", replyMarkup: inlineKeyboardMarkup
             );
+
+        userCaptcha.TryAdd(update.Message.From.Id, new() { ExpectedValue = randCheckNum, MessageId = messageId.Id });
     }
     
     private Task ErrorHandler(ITelegramBotClient client, Exception exception, CancellationToken token)
